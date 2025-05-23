@@ -2,7 +2,13 @@
 
 [Live Demo](https://vinalog.streamlit.app/)
 
-![image](https://github.com/user-attachments/assets/0fa3468f-2e4c-4393-ac5f-5e33f3734f0c)
+## App Screenshot
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/0fa3468f-2e4c-4393-ac5f-5e33f3734f0c" alt="AutoDock Vina Log Parser interface" width="500"/>
+</p>
+
+This screenshot shows the side-by-side upload panes for `.log` and `.zip` files, along with the parsed results displayed in a table.
 
 
 ---
