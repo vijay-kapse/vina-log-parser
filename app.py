@@ -16,10 +16,8 @@ def extract_best_mode_info(file_bytes, filename):
 
     lines = content.splitlines()
 
-    # Find header line
     for i, line in enumerate(lines):
         if "mode" in line.lower() and "affinity" in line.lower() and "rmsd" in line.lower():
-            # Look for table line 2 lines below
             if i + 2 < len(lines):
                 best_line = lines[i + 2].strip()
                 parts = re.split(r'\s+', best_line)
@@ -37,24 +35,38 @@ def extract_best_mode_info(file_bytes, filename):
 
     return None
 
-
 st.title("🧬 AutoDock Vina Log Parser")
-st.markdown("Upload a `.zip` file containing your `.log` files. This tool extracts the **best docking mode** from each log.")
+st.markdown("""
+Upload either a single `.log` file **or** a `.zip` file containing multiple `.log` files.
+The app extracts the **best docking conformation** (Mode 1) and displays the results.
+""")
 
-uploaded_zip = st.file_uploader("Upload ZIP file of .log files", type="zip")
+col1, col2 = st.columns(2)
+with col1:
+    single_log = st.file_uploader("Upload a single `.log` file", type="log")
+with col2:
+    zip_log = st.file_uploader("Upload a `.zip` file of `.log` files", type="zip")
 
-if uploaded_zip:
+results = []
+
+if single_log:
+    result = extract_best_mode_info(single_log.read(), single_log.name)
+    if result:
+        results.append(result)
+        st.success("✅ Parsed single `.log` file.")
+    else:
+        st.warning("⚠️ Unable to parse the uploaded `.log` file.")
+
+elif zip_log:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = os.path.join(tmpdir, "logs.zip")
         with open(zip_path, "wb") as f:
-            f.write(uploaded_zip.read())
+            f.write(zip_log.read())
 
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(tmpdir)
 
-        results = []
         log_file_count = 0
-
         for root, _, files in os.walk(tmpdir):
             for file in files:
                 if file.endswith(".log"):
@@ -66,19 +78,21 @@ if uploaded_zip:
                             results.append(result)
 
         if results:
-            df = pd.DataFrame(results)
-            st.success(f"✅ Parsed {len(results)} log file(s) out of {log_file_count} found.")
-            st.dataframe(df)
-
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download CSV",
-                data=csv,
-                file_name='vina_summary.csv',
-                mime='text/csv'
-            )
+            st.success(f"✅ Parsed {len(results)} out of {log_file_count} `.log` file(s).")
         elif log_file_count == 0:
             st.error("🚫 No `.log` files found in the ZIP.")
         else:
-            st.warning("⚠️ `.log` files found but unable to parse results from them. Please check the format.")
+            st.warning("⚠️ `.log` files found but unable to parse results from them.")
 
+# Show results and download
+if results:
+    df = pd.DataFrame(results)
+    st.dataframe(df)
+
+    csv = df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Download CSV",
+        data=csv,
+        file_name='vina_summary.csv',
+        mime='text/csv'
+    )
