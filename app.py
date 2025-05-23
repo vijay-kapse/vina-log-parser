@@ -11,7 +11,7 @@ def extract_best_mode_info(file_bytes, filename):
     except UnicodeDecodeError:
         try:
             content = file_bytes.decode('latin1')
-        except:
+        except Exception as e:
             return None
 
     lines = content.splitlines()
@@ -21,7 +21,7 @@ def extract_best_mode_info(file_bytes, filename):
             if i + 2 < len(lines):
                 best_line = lines[i + 2].strip()
                 parts = re.split(r'\s+', best_line)
-                if len(parts) >= 4:
+                if len(parts) >= 4 and parts[0].isdigit():
                     try:
                         return {
                             'filename': filename,
@@ -32,14 +32,16 @@ def extract_best_mode_info(file_bytes, filename):
                     except ValueError:
                         return None
             break
-
     return None
 
 st.title("🧬 AutoDock Vina Log Parser")
+
 st.markdown("""
 Upload either a single `.log` file **or** a `.zip` file containing multiple `.log` files.
 The app extracts the **best docking conformation** (Mode 1) and displays the results.
 """)
+
+debug = st.sidebar.checkbox("🔧 Enable Debug Logs")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -50,14 +52,19 @@ with col2:
 results = []
 
 if single_log:
-    result = extract_best_mode_info(single_log.read(), single_log.name)
+    file_bytes = single_log.read()
+    result = extract_best_mode_info(file_bytes, single_log.name)
     if result:
         results.append(result)
         st.success("✅ Parsed single `.log` file.")
+        if debug:
+            st.write("Parsed result:", result)
     else:
         st.warning("⚠️ Unable to parse the uploaded `.log` file.")
+        if debug:
+            st.write("Raw content:", file_bytes[:300])
 
-elif zip_log:
+if zip_log:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = os.path.join(tmpdir, "logs.zip")
         with open(zip_path, "wb") as f:
@@ -72,10 +79,19 @@ elif zip_log:
                 if file.endswith(".log"):
                     log_file_count += 1
                     file_path = os.path.join(root, file)
-                    with open(file_path, 'rb') as f:
-                        result = extract_best_mode_info(f.read(), file)
-                        if result:
-                            results.append(result)
+                    try:
+                        with open(file_path, 'rb') as f:
+                            file_bytes = f.read()
+                            result = extract_best_mode_info(file_bytes, file)
+                            if result:
+                                results.append(result)
+                                if debug:
+                                    st.write(f"Parsed: {file}")
+                            elif debug:
+                                st.write(f"Could not parse: {file}")
+                    except Exception as e:
+                        if debug:
+                            st.error(f"Error reading {file}: {e}")
 
         if results:
             st.success(f"✅ Parsed {len(results)} out of {log_file_count} `.log` file(s).")
@@ -84,7 +100,6 @@ elif zip_log:
         else:
             st.warning("⚠️ `.log` files found but unable to parse results from them.")
 
-# Show results and download
 if results:
     df = pd.DataFrame(results)
     st.dataframe(df)
@@ -96,3 +111,4 @@ if results:
         file_name='vina_summary.csv',
         mime='text/csv'
     )
+
