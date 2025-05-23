@@ -47,7 +47,7 @@ The app extracts key docking metrics from each log file and presents the results
 
 ---
 
-##Contact
+## Contact
 Created by Vijay Suryakant Kapse
 
 Feedback and contributions are welcome!
