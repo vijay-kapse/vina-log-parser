@@ -2,6 +2,9 @@
 
 [Live Demo](https://vinalog.streamlit.app/)
 
+![image](https://github.com/user-attachments/assets/0fa3468f-2e4c-4393-ac5f-5e33f3734f0c)
+
+
 ---
 
 ## Overview
