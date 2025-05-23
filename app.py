@@ -15,15 +15,15 @@ def extract_best_mode_info(file_bytes, filename):
             st.warning(f"❌ Failed to decode {filename}: {e}")
             return None
 
-    lines = content.splitlines()
+    # Normalize line endings
+    lines = content.replace('\r\n', '\n').splitlines()
 
     for i, line in enumerate(lines):
         if "mode" in line.lower() and "affinity" in line.lower() and "rmsd" in line.lower():
-            # We need the line 3 lines down: i + 3
+            # Look for best mode on the 4th line after header
             if i + 3 < len(lines):
                 best_line = lines[i + 3].strip()
                 parts = re.split(r'\s+', best_line)
-
                 if len(parts) >= 4 and parts[0].isdigit():
                     try:
                         return {
@@ -32,29 +32,24 @@ def extract_best_mode_info(file_bytes, filename):
                             'rmsd_lb': float(parts[2]),
                             'rmsd_ub': float(parts[3])
                         }
-                    except ValueError as ve:
-                        st.warning(f"⚠️ Value error in parsing line: {ve}")
+                    except ValueError:
+                        st.warning(f"⚠️ Could not parse numbers in line: {best_line}")
                         return None
                 else:
-                    st.warning(f"⚠️ Unexpected line format in {filename}: {parts}")
-                    return None
+                    st.warning(f"⚠️ Unexpected format in line: {best_line}")
             else:
-                st.warning(f"⚠️ Incomplete docking result in {filename}")
+                st.warning(f"⚠️ Not enough lines after header in {filename}")
             break
 
     st.warning(f"⚠️ Header line not found in {filename}")
     return None
 
-
-
+# Streamlit UI
 st.title("🧬 AutoDock Vina Log Parser")
-
 st.markdown("""
 Upload either a single `.log` file **or** a `.zip` file containing multiple `.log` files.
 The app extracts the **best docking conformation** (Mode 1) and displays the results.
 """)
-
-debug = st.sidebar.checkbox("🔧 Enable Debug Logs")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -64,20 +59,17 @@ with col2:
 
 results = []
 
+# Single file
 if single_log:
-    file_bytes = single_log.read()
-    result = extract_best_mode_info(file_bytes, single_log.name)
+    result = extract_best_mode_info(single_log.read(), single_log.name)
     if result:
         results.append(result)
         st.success("✅ Parsed single `.log` file.")
-        if debug:
-            st.write("Parsed result:", result)
     else:
         st.warning("⚠️ Unable to parse the uploaded `.log` file.")
-        if debug:
-            st.write("Raw content:", file_bytes[:300])
 
-if zip_log:
+# Zip file
+elif zip_log:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = os.path.join(tmpdir, "logs.zip")
         with open(zip_path, "wb") as f:
@@ -92,19 +84,10 @@ if zip_log:
                 if file.endswith(".log"):
                     log_file_count += 1
                     file_path = os.path.join(root, file)
-                    try:
-                        with open(file_path, 'rb') as f:
-                            file_bytes = f.read()
-                            result = extract_best_mode_info(file_bytes, file)
-                            if result:
-                                results.append(result)
-                                if debug:
-                                    st.write(f"Parsed: {file}")
-                            elif debug:
-                                st.write(f"Could not parse: {file}")
-                    except Exception as e:
-                        if debug:
-                            st.error(f"Error reading {file}: {e}")
+                    with open(file_path, 'rb') as f:
+                        result = extract_best_mode_info(f.read(), file)
+                        if result:
+                            results.append(result)
 
         if results:
             st.success(f"✅ Parsed {len(results)} out of {log_file_count} `.log` file(s).")
@@ -113,6 +96,7 @@ if zip_log:
         else:
             st.warning("⚠️ `.log` files found but unable to parse results from them.")
 
+# Results
 if results:
     df = pd.DataFrame(results)
     st.dataframe(df)
@@ -124,4 +108,3 @@ if results:
         file_name='vina_summary.csv',
         mime='text/csv'
     )
-
