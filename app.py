@@ -15,7 +15,6 @@ def extract_best_mode_info(file_bytes, filename):
             st.warning(f"❌ Could not decode {filename}")
             return None
 
-    # Regex to find the "Mode 1" line (after 'mode | ...' table header)
     mode1_match = re.search(
         r"mode\s+\|\s+affinity\s+\|.*?\n[-+\s]+\n\s*1\s+([-\d\.]+)\s+([-\d\.]+)\s+([-\d\.]+)",
         content,
@@ -37,34 +36,40 @@ def extract_best_mode_info(file_bytes, filename):
             st.warning(f"⚠️ Found Mode 1 line but couldn't parse numbers in {filename}")
     else:
         st.warning(f"⚠️ Mode 1 block not found in {filename}")
-
     return None
 
 # --- Streamlit UI ---
 st.title("🧬 AutoDock Vina Log Parser")
 st.markdown("""
-Upload a single `.log` file **or** a `.zip` file containing multiple `.log` files.
-The app extracts the **best docking conformation** (Mode 1) and displays the results.
+Upload `.log` files individually or as a `.zip` archive containing multiple `.log` files.
+This tool extracts the **best docking mode (Mode 1)** from each file and summarizes the results.
 """)
 
-col1, col2 = st.columns(2)
-with col1:
-    single_log = st.file_uploader("Upload a single `.log` file", type="log")
-with col2:
-    zip_log = st.file_uploader("Upload a `.zip` file of `.log` files", type="zip")
+uploaded_logs = st.file_uploader(
+    "Upload `.log` file(s)",
+    type=["log"],
+    accept_multiple_files=True
+)
+
+zip_log = st.file_uploader(
+    "Or upload a `.zip` file of `.log` files",
+    type="zip"
+)
 
 results = []
 
-# --- Single File Upload ---
-if single_log:
-    result = extract_best_mode_info(single_log.read(), single_log.name)
-    if result:
-        results.append(result)
-        st.success("✅ Parsed single `.log` file.")
+# --- Handle multiple individual .log files ---
+if uploaded_logs:
+    for file in uploaded_logs:
+        result = extract_best_mode_info(file.read(), file.name)
+        if result:
+            results.append(result)
+    if results:
+        st.success(f"✅ Parsed {len(results)} of {len(uploaded_logs)} uploaded `.log` files.")
     else:
-        st.warning("⚠️ Unable to parse the uploaded `.log` file.")
+        st.warning("⚠️ No valid results parsed from uploaded files.")
 
-# --- ZIP Upload ---
+# --- Handle ZIP upload ---
 elif zip_log:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = os.path.join(tmpdir, "logs.zip")
@@ -86,13 +91,13 @@ elif zip_log:
                             results.append(result)
 
         if results:
-            st.success(f"✅ Parsed {len(results)} out of {log_file_count} `.log` file(s).")
+            st.success(f"✅ Parsed {len(results)} out of {log_file_count} `.log` file(s) in ZIP.")
         elif log_file_count == 0:
             st.error("🚫 No `.log` files found in the ZIP.")
         else:
             st.warning("⚠️ `.log` files found but unable to parse results from them.")
 
-# --- Display Results ---
+# --- Display results ---
 if results:
     df = pd.DataFrame(results)
     st.dataframe(df)
