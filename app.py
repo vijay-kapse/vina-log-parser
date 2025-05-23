@@ -12,6 +12,7 @@ def extract_best_mode_info(file_bytes, filename):
         try:
             content = file_bytes.decode('latin1')
         except Exception as e:
+            st.warning(f"❌ Failed to decode {filename}: {e}")
             return None
 
     lines = content.splitlines()
@@ -21,6 +22,11 @@ def extract_best_mode_info(file_bytes, filename):
             if i + 2 < len(lines):
                 best_line = lines[i + 2].strip()
                 parts = re.split(r'\s+', best_line)
+
+                st.write(f"📄 File: {filename}")
+                st.write(f"Best line: `{best_line}`")
+                st.write(f"Parts: {parts}")
+
                 if len(parts) >= 4 and parts[0].isdigit():
                     try:
                         return {
@@ -29,10 +35,19 @@ def extract_best_mode_info(file_bytes, filename):
                             'rmsd_lb': float(parts[2]),
                             'rmsd_ub': float(parts[3])
                         }
-                    except ValueError:
+                    except ValueError as ve:
+                        st.warning(f"⚠️ Value error in parsing line: {ve}")
                         return None
+                else:
+                    st.warning(f"⚠️ Unexpected line format in {filename}: {parts}")
+                    return None
+            else:
+                st.warning(f"⚠️ Incomplete data block after header in {filename}")
             break
+
+    st.warning(f"⚠️ Header line not found in {filename}")
     return None
+
 
 st.title("🧬 AutoDock Vina Log Parser")
 
