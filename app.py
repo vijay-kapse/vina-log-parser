@@ -38,27 +38,31 @@ def extract_best_mode_info(file_bytes, filename):
         st.warning(f"⚠️ Mode 1 block not found in {filename}")
     return None
 
-# --- Streamlit UI ---
+# --- UI Layout ---
 st.title("🧬 AutoDock Vina Log Parser")
 st.markdown("""
-Upload `.log` files individually or as a `.zip` archive containing multiple `.log` files.
-This tool extracts the **best docking mode (Mode 1)** from each file and summarizes the results.
+Upload either multiple `.log` files **or** a `.zip` file containing `.log` files.
+The app extracts **Mode 1** information from each log and summarizes the results.
 """)
 
-uploaded_logs = st.file_uploader(
-    "Upload `.log` file(s)",
-    type=["log"],
-    accept_multiple_files=True
-)
+col1, col2 = st.columns(2)
 
-zip_log = st.file_uploader(
-    "Or upload a `.zip` file of `.log` files",
-    type="zip"
-)
+with col1:
+    uploaded_logs = st.file_uploader(
+        "Upload one or more `.log` files",
+        type=["log"],
+        accept_multiple_files=True
+    )
+
+with col2:
+    zip_log = st.file_uploader(
+        "Upload a `.zip` file of `.log` files",
+        type="zip"
+    )
 
 results = []
 
-# --- Handle multiple individual .log files ---
+# Handle individual .log uploads
 if uploaded_logs:
     for file in uploaded_logs:
         result = extract_best_mode_info(file.read(), file.name)
@@ -67,9 +71,9 @@ if uploaded_logs:
     if results:
         st.success(f"✅ Parsed {len(results)} of {len(uploaded_logs)} uploaded `.log` files.")
     else:
-        st.warning("⚠️ No valid results parsed from uploaded files.")
+        st.warning("⚠️ No valid Mode 1 results found in uploaded files.")
 
-# --- Handle ZIP upload ---
+# Handle ZIP upload
 elif zip_log:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = os.path.join(tmpdir, "logs.zip")
@@ -97,7 +101,7 @@ elif zip_log:
         else:
             st.warning("⚠️ `.log` files found but unable to parse results from them.")
 
-# --- Display results ---
+# Display results
 if results:
     df = pd.DataFrame(results)
     st.dataframe(df)
