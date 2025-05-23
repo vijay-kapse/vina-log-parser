@@ -19,13 +19,10 @@ def extract_best_mode_info(file_bytes, filename):
 
     for i, line in enumerate(lines):
         if "mode" in line.lower() and "affinity" in line.lower() and "rmsd" in line.lower():
-            if i + 2 < len(lines):
-                best_line = lines[i + 2].strip()
+            # We need the line 3 lines down: i + 3
+            if i + 3 < len(lines):
+                best_line = lines[i + 3].strip()
                 parts = re.split(r'\s+', best_line)
-
-                st.write(f"📄 File: {filename}")
-                st.write(f"Best line: `{best_line}`")
-                st.write(f"Parts: {parts}")
 
                 if len(parts) >= 4 and parts[0].isdigit():
                     try:
@@ -42,11 +39,12 @@ def extract_best_mode_info(file_bytes, filename):
                     st.warning(f"⚠️ Unexpected line format in {filename}: {parts}")
                     return None
             else:
-                st.warning(f"⚠️ Incomplete data block after header in {filename}")
+                st.warning(f"⚠️ Incomplete docking result in {filename}")
             break
 
     st.warning(f"⚠️ Header line not found in {filename}")
     return None
+
 
 
 st.title("🧬 AutoDock Vina Log Parser")
