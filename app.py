@@ -11,43 +11,39 @@ def extract_best_mode_info(file_bytes, filename):
     except UnicodeDecodeError:
         try:
             content = file_bytes.decode('latin1')
-        except Exception as e:
-            st.warning(f"❌ Failed to decode {filename}: {e}")
+        except:
+            st.warning(f"❌ Could not decode {filename}")
             return None
 
-    # Normalize line endings
-    lines = content.replace('\r\n', '\n').splitlines()
+    # Regex to find the "Mode 1" line (after 'mode | ...' table header)
+    mode1_match = re.search(
+        r"mode\s+\|\s+affinity\s+\|.*?\n[-+\s]+\n\s*1\s+([-\d\.]+)\s+([-\d\.]+)\s+([-\d\.]+)",
+        content,
+        re.IGNORECASE | re.DOTALL
+    )
 
-    for i, line in enumerate(lines):
-        if "mode" in line.lower() and "affinity" in line.lower() and "rmsd" in line.lower():
-            # Look for best mode on the 4th line after header
-            if i + 3 < len(lines):
-                best_line = lines[i + 3].strip()
-                parts = re.split(r'\s+', best_line)
-                if len(parts) >= 4 and parts[0].isdigit():
-                    try:
-                        return {
-                            'filename': filename,
-                            'affinity_kcal_per_mol': float(parts[1]),
-                            'rmsd_lb': float(parts[2]),
-                            'rmsd_ub': float(parts[3])
-                        }
-                    except ValueError:
-                        st.warning(f"⚠️ Could not parse numbers in line: {best_line}")
-                        return None
-                else:
-                    st.warning(f"⚠️ Unexpected format in line: {best_line}")
-            else:
-                st.warning(f"⚠️ Not enough lines after header in {filename}")
-            break
+    if mode1_match:
+        try:
+            affinity = float(mode1_match.group(1))
+            rmsd_lb = float(mode1_match.group(2))
+            rmsd_ub = float(mode1_match.group(3))
+            return {
+                'filename': filename,
+                'affinity_kcal_per_mol': affinity,
+                'rmsd_lb': rmsd_lb,
+                'rmsd_ub': rmsd_ub
+            }
+        except ValueError:
+            st.warning(f"⚠️ Found Mode 1 line but couldn't parse numbers in {filename}")
+    else:
+        st.warning(f"⚠️ Mode 1 block not found in {filename}")
 
-    st.warning(f"⚠️ Header line not found in {filename}")
     return None
 
-# Streamlit UI
+# --- Streamlit UI ---
 st.title("🧬 AutoDock Vina Log Parser")
 st.markdown("""
-Upload either a single `.log` file **or** a `.zip` file containing multiple `.log` files.
+Upload a single `.log` file **or** a `.zip` file containing multiple `.log` files.
 The app extracts the **best docking conformation** (Mode 1) and displays the results.
 """)
 
@@ -59,7 +55,7 @@ with col2:
 
 results = []
 
-# Single file
+# --- Single File Upload ---
 if single_log:
     result = extract_best_mode_info(single_log.read(), single_log.name)
     if result:
@@ -68,7 +64,7 @@ if single_log:
     else:
         st.warning("⚠️ Unable to parse the uploaded `.log` file.")
 
-# Zip file
+# --- ZIP Upload ---
 elif zip_log:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = os.path.join(tmpdir, "logs.zip")
@@ -96,7 +92,7 @@ elif zip_log:
         else:
             st.warning("⚠️ `.log` files found but unable to parse results from them.")
 
-# Results
+# --- Display Results ---
 if results:
     df = pd.DataFrame(results)
     st.dataframe(df)
