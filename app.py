@@ -15,28 +15,28 @@ def extract_best_mode_info(file_bytes, filename):
             return None
 
     lines = content.splitlines()
-    
+
+    # Find header line
     for i, line in enumerate(lines):
-        if re.match(r'\s*mode\s*\|\s*affinity', line):
-            start = i + 2
+        if "mode" in line.lower() and "affinity" in line.lower() and "rmsd" in line.lower():
+            # Look for table line 2 lines below
+            if i + 2 < len(lines):
+                best_line = lines[i + 2].strip()
+                parts = re.split(r'\s+', best_line)
+                if len(parts) >= 4:
+                    try:
+                        return {
+                            'filename': filename,
+                            'affinity_kcal_per_mol': float(parts[1]),
+                            'rmsd_lb': float(parts[2]),
+                            'rmsd_ub': float(parts[3])
+                        }
+                    except ValueError:
+                        return None
             break
-    else:
-        return None
 
-    if start >= len(lines):
-        return None
+    return None
 
-    best_line = lines[start].strip()
-    parts = re.split(r'\s+', best_line)
-    if len(parts) < 4:
-        return None
-
-    return {
-        'filename': filename,
-        'affinity_kcal_per_mol': float(parts[1]),
-        'rmsd_lb': float(parts[2]),
-        'rmsd_ub': float(parts[3])
-    }
 
 st.title("🧬 AutoDock Vina Log Parser")
 st.markdown("Upload a `.zip` file containing your `.log` files. This tool extracts the **best docking mode** from each log.")
