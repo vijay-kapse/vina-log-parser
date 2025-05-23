@@ -1,0 +1,70 @@
+import streamlit as st
+import zipfile
+import tempfile
+import os
+import re
+import pandas as pd
+
+def extract_best_mode_info(file_content, filename):
+    lines = file_content.decode('utf-8').splitlines()
+    
+    for i, line in enumerate(lines):
+        if re.match(r'\s*mode\s*\|\s*affinity', line):
+            start = i + 2
+            break
+    else:
+        return None  # table not found
+
+    if start >= len(lines):
+        return None
+
+    best_line = lines[start].strip()
+    parts = re.split(r'\s+', best_line)
+    if len(parts) < 4:
+        return None
+
+    return {
+        'filename': filename,
+        'affinity_kcal_per_mol': float(parts[1]),
+        'rmsd_lb': float(parts[2]),
+        'rmsd_ub': float(parts[3])
+    }
+
+st.title("🧬 AutoDock Vina Log Parser")
+st.markdown("Upload a `.zip` file containing your `.log` files. This tool extracts the best docking result from each log.")
+
+uploaded_zip = st.file_uploader("Upload ZIP file of .log files", type="zip")
+
+if uploaded_zip:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = os.path.join(tmpdir, "logs.zip")
+        with open(zip_path, "wb") as f:
+            f.write(uploaded_zip.read())
+
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(tmpdir)
+
+        results = []
+        for root, _, files in os.walk(tmpdir):
+            for file in files:
+                if file.endswith(".log"):
+                    file_path = os.path.join(root, file)
+                    with open(file_path, 'rb') as f:
+                        result = extract_best_mode_info(f.read(), file)
+                        if result:
+                            results.append(result)
+
+        if results:
+            df = pd.DataFrame(results)
+            st.success(f"✅ Parsed {len(df)} log files.")
+            st.dataframe(df)
+
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv,
+                file_name='vina_summary.csv',
+                mime='text/csv'
+            )
+        else:
+            st.warning("⚠️ No valid log files found or unable to parse.")
